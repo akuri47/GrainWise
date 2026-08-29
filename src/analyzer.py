@@ -94,17 +94,16 @@ class RiceGrainAnalyzer:
             print("[Models] Variety will be predicted from morphological features (rule-based).")
 
         # Load defect classifier
-        defect_model_path = os.path.join(MODEL_DIR, "defect_resnet18_best.pth")
-        if os.path.exists(defect_model_path):
+        defect_model_path_onnx = os.path.join(MODEL_DIR, "defect_resnet18_best.onnx")
+        if os.path.exists(defect_model_path_onnx):
             try:
-                from src.defect_classifier import load_model as load_defect_model
-                self.defect_model = load_defect_model(defect_model_path)
-                self.defect_model.eval()
-                print("[Models] Defect classifier loaded.")
+                import onnxruntime as ort
+                self.defect_model = ort.InferenceSession(defect_model_path_onnx)
+                print("[Models] Defect classifier (ONNX) loaded.")
             except Exception as e:
                 print(f"[Models] Could not load defect classifier: {e}")
         else:
-            print(f"[Models] Defect classifier not found at {defect_model_path}")
+            print(f"[Models] Defect classifier (ONNX) not found at {defect_model_path_onnx}")
             print("[Models] Defect classification will use rule-based fallback.")
 
         # Check for GPU
@@ -589,7 +588,6 @@ class RiceGrainAnalyzer:
 
         if self.defect_model is not None:
             try:
-                from src.defect_classifier import predict_batch
                 # Extract individual grain images
                 grain_images = []
                 for cnt, msk in zip(contours, masks):
@@ -602,7 +600,62 @@ class RiceGrainAnalyzer:
                     grain_crop[roi_mask == 0] = 0
                     grain_images.append(grain_crop)
 
-                results = predict_batch(self.defect_model, grain_images, self.device)
+                # ---------------------------------------------------------
+                # Pure ONNX Inference (No PyTorch/Torchvision required)
+                # ---------------------------------------------------------
+                input_size = 224
+                mean = np.array([0.485, 0.456, 0.406])
+                std = np.array([0.229, 0.224, 0.225])
+                
+                tensors = []
+                for crop in grain_images:
+                    # BGR to RGB
+                    rgb = cv2.cvtColor(crop, cv2.COLOR_BGR2RGB)
+                    
+                    # Resize to 256 (maintaining aspect ratio or just 256x256)
+                    h, w = rgb.shape[:2]
+                    scale = 256 / min(h, w)
+                    new_h, new_w = int(h * scale), int(w * scale)
+                    resized = cv2.resize(rgb, (new_w, new_h), interpolation=cv2.INTER_LINEAR)
+                    
+                    # Center Crop 224x224
+                    start_y = (new_h - input_size) // 2
+                    start_x = (new_w - input_size) // 2
+                    cropped = resized[start_y:start_y+input_size, start_x:start_x+input_size]
+                    
+                    # Normalize (0-1), subtract mean, divide std
+                    normalized = (cropped / 255.0 - mean) / std
+                    
+                    # Transpose from HWC to CHW format for ONNX/PyTorch
+                    transposed = np.transpose(normalized, (2, 0, 1)).astype(np.float32)
+                    tensors.append(transposed)
+                
+                if tensors:
+                    batch = np.stack(tensors)
+                    ort_inputs = {self.defect_model.get_inputs()[0].name: batch}
+                    logits = self.defect_model.run(None, ort_inputs)[0]
+                    # Softmax
+                    exp_logits = np.exp(logits - np.max(logits, axis=1, keepdims=True))
+                    probs = exp_logits / np.sum(exp_logits, axis=1, keepdims=True)
+                else:
+                    probs = np.array([])
+                
+                # Format results just like the old PyTorch output
+                results = []
+                for i in range(len(grain_images)):
+                    confidence = {DEFECT_LABELS[j]: float(probs[i, j]) for j in range(len(DEFECT_LABELS))}
+                    max_idx = int(np.argmax(probs[i]))
+                    max_prob = float(probs[i, max_idx])
+                    max_label = DEFECT_LABELS[max_idx]
+                    
+                    if max_label != "whole" and max_prob >= 0.3:
+                        label = max_label
+                    elif max_label == "whole" and max_prob >= 0.5:
+                        label = "whole"
+                    else:
+                        label = "unknown"
+                    results.append((label, confidence))
+                # ---------------------------------------------------------
                 
                 # Hybrid ML + rule-based approach:
                 # - ML detects a defect → trust ML
