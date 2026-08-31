@@ -407,19 +407,9 @@ def predict_batch(
 
     batch = torch.stack(tensors).to(device)
 
-    # Check if model is an ONNX runtime session
-    if hasattr(model, 'run'):
-        # ONNX inference
-        ort_inputs = {model.get_inputs()[0].name: batch.cpu().numpy()}
-        logits = model.run(None, ort_inputs)[0]
-        # Softmax in numpy
-        exp_logits = np.exp(logits - np.max(logits, axis=1, keepdims=True))
-        probs = exp_logits / np.sum(exp_logits, axis=1, keepdims=True)
-    else:
-        # PyTorch inference
-        with torch.no_grad():
-            logits = model(batch)
-            probs = torch.softmax(logits, dim=1).cpu().numpy()
+    with torch.no_grad():
+        logits = model(batch)
+        probs = torch.softmax(logits, dim=1).cpu().numpy()
 
     results = []
     for i in range(len(grain_images)):
