@@ -3,8 +3,7 @@
 [![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://grainwise.streamlit.app)
 
 **Computer Vision + Data Analytics** system for automated rice quality assessment, variety identification, shelf-life estimation, and market price recommendation — built per Government of India FAQ standards.
-
-> Research Intern Project | Prof. Brajesh K. Panda | IIT Kharagpur  
+ 
 > 🌐 **Live Analytics Dashboard:** [https://grainwise.streamlit.app](https://grainwise.streamlit.app)
 
 ---
