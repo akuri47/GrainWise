@@ -1,8 +1,11 @@
 # 🌾 GrainWise — Rice Grain Quality Analyzer
 
+[![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://grainwise.streamlit.app)
+
 **Computer Vision + Data Analytics** system for automated rice quality assessment, variety identification, shelf-life estimation, and market price recommendation — built per Government of India FAQ standards.
 
-> Research Intern Project | Prof. Brajesh K. Panda | IIT Kharagpur
+> Research Intern Project | Prof. Brajesh K. Panda | IIT Kharagpur  
+> 🌐 **Live Analytics Dashboard:** [https://grainwise.streamlit.app](https://grainwise.streamlit.app)
 
 ---
 
@@ -94,6 +97,9 @@ python data_analytics/statistical_tests.py
 Runs ANOVA, Kruskal-Wallis, chi-square, and Spearman correlation tests → confirms significant inter-variety morphological differences (p < 0.001).
 
 ### 3. Interactive Dashboard
+
+> 🔗 **Live Demo:** [https://grainwise.streamlit.app](https://grainwise.streamlit.app)
+
 ```bash
 pip install -r data_analytics/requirements.txt
 streamlit run data_analytics/streamlit_dashboard.py
@@ -116,6 +122,7 @@ Generates realistic synthetic grain feature data for analytics testing.
 
 | Component | Platform | URL |
 |-----------|----------|-----|
+| Analytics Dashboard | Streamlit Community Cloud | [https://grainwise.streamlit.app](https://grainwise.streamlit.app) |
 | Backend API | Render (Flask + Gunicorn) | REST API endpoint |
 | Frontend PWA | Vercel CDN | Progressive Web App |
 
